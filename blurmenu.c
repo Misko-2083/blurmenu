@@ -32,8 +32,11 @@ cairo_surface_t *covert_to_cairo(XImage *ximg, int width, int height)
 		}
 	}
 
-	surface = cairo_image_surface_create_for_data(data, CAIRO_FORMAT_RGB24,
-						      width, height, stride);
+	surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, width, height);
+	unsigned char *surface_data = cairo_image_surface_get_data(surface);
+	cairo_surface_flush(surface);
+	memcpy(surface_data, data, width * height * 4);
+	free(data);
 	cairo_surface_mark_dirty(surface);
 	return surface;
 }
