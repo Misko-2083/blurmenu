@@ -6,18 +6,12 @@
  */
 
 #include <cairo.h>
-#include <cairo-xlib.h>
 #include <stdio.h>
-#include <string.h>
-#include <malloc.h>
 #include <stdlib.h>
-#include <X11/Xutil.h>
-#include <X11/cursorfont.h>
-#include <unistd.h>
+#include <string.h>
 #include "stackblur.h"
 
-// This is measured to be slightly faster.
-#define GetPixel(_ximg_, _x_, _y_) ((u_int32_t *)&(ximg->data[_y_ * _ximg_->bytes_per_line]))[_x_]
+struct box { int x; int y; int w; int h; };
 
 cairo_surface_t *covert_to_cairo(XImage *ximg, int width, int height)
 {
@@ -44,23 +38,24 @@ cairo_surface_t *covert_to_cairo(XImage *ximg, int width, int height)
 	return surface;
 }
 
-XImage *get_root_ximage(int x, int y, int w, int h)
+XImage *get_root_ximage(struct box *box)
 {
 	Display* dpy = XOpenDisplay(NULL);
 	Screen *scr = ScreenOfDisplay(dpy, DefaultScreen(dpy));
 	Window root = RootWindow(dpy, XScreenNumberOfScreen(scr));
-	XImage *ximg = XGetImage(dpy, root, x, y, w, h, AllPlanes, ZPixmap);
+	XImage *ximg = XGetImage(dpy, root, box->x, box->y, box->w, box->h,
+				 AllPlanes, ZPixmap);
 	XCloseDisplay(dpy);
 	return ximg;
 }
 
 int main(int argc, char *argv[])
 {
-	int x=10, y=10, w=100, h=100;
+	struct box box = { .x = 10, .y = 10, .w = 100, .h = 100 };
 	int radius = 10;
-	XImage *ximg = get_root_ximage(x, y, w, h);
-	stackblur(ximg, 0, 0, w, h, radius, 2);
-	cairo_surface_t *surf = covert_to_cairo(ximg, w, h);
+	XImage *ximg = get_root_ximage(&box);
+	stackblur(ximg, 0, 0, box.w, box.h, radius, 2);
+	cairo_surface_t *surf = covert_to_cairo(ximg, box.w, box.h);
 	if (ximg)
 		XDestroyImage(ximg);
 	cairo_surface_write_to_png(surf, "image.png");
