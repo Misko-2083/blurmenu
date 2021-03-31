@@ -15,6 +15,7 @@ static const char blurmenu_usage[] =
 "Usage: blurmenu [options]\n\n"
 "  -h            Show help message and quit\n"
 "  -r <radius>   Specify blur radius (1-50)\n"
+"  -t <threads>  Specify CPU threads (2-16)\n"
 "\n";
 
 static void
@@ -105,11 +106,16 @@ int main(int argc, char *argv[])
 {
 	int radius = 10;
 	int c;
-	while ((c = getopt(argc, argv, "hr:")) != -1) {
+	while ((c = getopt(argc, argv, "hr:t:")) != -1) {
 		switch (c) {
 		case 'r':
 			radius = atoi(optarg);
 			break;
+		case 't':
+			if (atoi(optarg) > 1 && atoi(optarg) < 17) {
+				threads = atoi(optarg);
+				break;
+			}
 		case 'h':
 		default:
 			usage();
@@ -180,7 +186,7 @@ int main(int argc, char *argv[])
 	/* take screenshot */
 	XImage *ximg = XGetImage(ctx.dpy, ctx.root, ctx.window_geo.x, ctx.window_geo.y,
 				 ctx.window_geo.w, ctx.window_geo.h, AllPlanes, ZPixmap);
-	stackblur(ximg, 0, 0, ctx.window_geo.w, ctx.window_geo.h, radius, 2);
+	stackblur(ximg, 0, 0, ctx.window_geo.w, ctx.window_geo.h, radius, threads);
 	ctx.blurred_scrot = surface_from_ximage(ximg, ctx.window_geo.w, ctx.window_geo.h);
 	if (ximg)
 		XDestroyImage(ximg);
