@@ -105,6 +105,7 @@ static void handle_key_event(struct xwindow *ctx, XKeyEvent *ev)
 int main(int argc, char *argv[])
 {
 	int radius = 10;
+	int threads = 2;
 	int c;
 	while ((c = getopt(argc, argv, "hr:t:")) != -1) {
 		switch (c) {
