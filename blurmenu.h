@@ -19,6 +19,25 @@ struct box {
 	int x; int y; int w; int h;
 };
 
+struct xwindow {
+	Display *dpy;
+	Window win;
+	Window root;
+	GC gc;		/* graphics context */
+	XIC xic;	/* input context */
+	XIM xim;	/* input method */
+	cairo_t *cr;	/* cairo drawing context */
+	Pixmap canvas;	/* X drawable pixmap */
+
+	cairo_surface_t *blurred_scrot;
+
+	/* output coordinates of the crt the window is on */
+	struct box screen_geo;
+
+	/* output coordinates of the window */
+	struct box window_geo;
+};
+
 cairo_surface_t *surface_from_ximage(XImage *ximg, int width, int height);
 
 void select_area(int * cordx, int * cordy, int * cordw, int * cordh);

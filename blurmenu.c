@@ -9,15 +9,7 @@
 #include "blurmenu.h"
 #include "stackblur.h"
 
-static Window win;
-static XIC xic;
-static GC gc;
-static cairo_t *cr;
-static Display *dpy;
-static XIM xim;
-static Window root;
-static struct box screen_geo;
-static struct box window_geo;
+static struct box blue_square_geo = { .x = 10, .y = 10, .w = 10, .h = 10 };
 
 static const char blurmenu_usage[] =
 "Usage: blurmenu [options]\n\n"
@@ -55,20 +47,20 @@ static bool is_point_on_crt(int x, int y, XRRCrtcInfo *ci)
 }
 
 /* return the geometry of the crt where the pointer is */
-static void crt_geometry(struct box *box)
+static void crt_geometry(struct xwindow *ctx, struct box *box)
 {
 	int i, n, x, y, di;
 	unsigned int du;
 	Window dw;
 	XRRScreenResources *sr;
 	XRRCrtcInfo *ci = NULL;
-	sr = XRRGetScreenResourcesCurrent(dpy, root);
+	sr = XRRGetScreenResourcesCurrent(ctx->dpy, ctx->root);
 	n = sr->ncrtc;
-	XQueryPointer(dpy, root, &dw, &dw, &x, &y, &di, &di, &du);
+	XQueryPointer(ctx->dpy, ctx->root, &dw, &dw, &x, &y, &di, &di, &du);
 	for (i = 0; i < n; i++) {
 		if (ci)
 			XRRFreeCrtcInfo(ci);
-		ci = XRRGetCrtcInfo(dpy, sr, sr->crtcs[i]);
+		ci = XRRGetCrtcInfo(ctx->dpy, sr, sr->crtcs[i]);
 		if (!ci->noutput)
 			continue;
 		if (is_point_on_crt(x, y, ci)) {
@@ -87,35 +79,35 @@ static void crt_geometry(struct box *box)
 }
 
 /* create a transparent window with no border */
-static void create_window(struct box *box, XVisualInfo *vinfo)
+static void create_window(struct xwindow *ctx, struct box *box, XVisualInfo *vinfo)
 {
 	XSetWindowAttributes swa;
 	swa.override_redirect = True;
 	swa.event_mask = ExposureMask | KeyPressMask |
 			 VisibilityChangeMask | ButtonPressMask;
-	swa.colormap = XCreateColormap(dpy, root, vinfo->visual, AllocNone);
+	swa.colormap = XCreateColormap(ctx->dpy, ctx->root, vinfo->visual, AllocNone);
 	swa.background_pixel = 0;
 	swa.border_pixel = 0;
-	win = XCreateWindow(dpy, root, box->x, box->y, box->w, box->h, 0,
+	ctx->win = XCreateWindow(ctx->dpy, ctx->root, box->x, box->y, box->w, box->h, 0,
 		vinfo->depth, CopyFromParent, vinfo->visual, CWOverrideRedirect |
 		CWColormap | CWBackPixel | CWEventMask | CWBorderPixel, &swa);
-	xic = XCreateIC(xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
-		XNClientWindow, win, XNFocusWindow, win, NULL);
-	gc = XCreateGC(dpy, win, 0, NULL);
-	XStoreName(dpy, win, "blurmenu");
-	XSetIconName(dpy, win, "blurmenu");
+	ctx->xic = XCreateIC(ctx->xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
+		XNClientWindow, ctx->win, XNFocusWindow, ctx->win, NULL);
+	ctx->gc = XCreateGC(ctx->dpy, ctx->win, 0, NULL);
+	XStoreName(ctx->dpy, ctx->win, "blurmenu");
+	XSetIconName(ctx->dpy, ctx->win, "blurmenu");
 
 	XClassHint *classhint = XAllocClassHint();
 	classhint->res_name = (char *)"blurmenu";
 	classhint->res_class = (char *)"blurmenu";
-	XSetClassHint(dpy, win, classhint);
+	XSetClassHint(ctx->dpy, ctx->win, classhint);
 	XFree(classhint);
 
-	XDefineCursor(dpy, win, XCreateFontCursor(dpy, 68));
-	XSync(dpy, False);
+	XDefineCursor(ctx->dpy, ctx->win, XCreateFontCursor(ctx->dpy, 68));
+	XSync(ctx->dpy, False);
 }
 
-void render_image(cairo_surface_t *image, double x, double y, double alpha)
+void render_image(cairo_t *cr, cairo_surface_t *image, double x, double y, double alpha)
 {
 	cairo_save(cr);
 	cairo_translate(cr, x, y);
@@ -124,7 +116,7 @@ void render_image(cairo_surface_t *image, double x, double y, double alpha)
 	cairo_restore(cr);
 }
 
-void render_rectangle(struct box *box, double *rgba)
+void render_rectangle(cairo_t *cr, struct box *box, double *rgba, bool fill)
 {
 	double border_width = 1.0;
 	double x = box->x + border_width / 2;
@@ -135,31 +127,49 @@ void render_rectangle(struct box *box, double *rgba)
 	cairo_set_source_rgba(cr, rgba[0], rgba[1], rgba[2], rgba[3]);
 	cairo_set_line_width(cr, border_width);
 	cairo_rectangle(cr, x, y, w, h);
-//	cairo_fill(c);
+	if (fill)
+		cairo_fill(cr);
 	cairo_stroke(cr);
 }
 
-static void move(struct box *geo)
+static void render(struct xwindow *ctx, struct box *menu)
 {
-	XMoveResizeWindow(dpy, win, geo->x, geo->y, geo->w, geo->h);
+	render_image(ctx->cr, ctx->blurred_scrot, 0, 0, 0.99);
+
+	double red[] = { 1.0, 0.0, 0.0, 1.0 };
+	render_rectangle(ctx->cr, menu, red, false);
+
+	double blue[] = { 0.0, 0.0, 1.0, 1.0 };
+	render_rectangle(ctx->cr, &blue_square_geo, blue, true);
+
+	XCopyArea(ctx->dpy, ctx->canvas, ctx->win, ctx->gc, 0, 0, menu->w, menu->h, 0, 0);
 }
 
-static void handle_key_event(XKeyEvent *ev)
+static void handle_key_event(struct xwindow *ctx, XKeyEvent *ev)
 {
 	char buf[32];
 	KeySym ksym = NoSymbol;
 	Status status;
 
-	Xutf8LookupString(xic, ev, buf, sizeof(buf), &ksym, &status);
+	Xutf8LookupString(ctx->xic, ev, buf, sizeof(buf), &ksym, &status);
 	if (status == XBufferOverflow)
 		return;
 
+	int step = 5;
 	switch (ksym) {
 	case XK_Escape:
 		exit(0);
 	case XK_Up:
-		window_geo.y -= 5;
-		move(&window_geo);
+		blue_square_geo.y -= step;
+		break;
+	case XK_Down:
+		blue_square_geo.y += step;
+		break;
+	case XK_Right:
+		blue_square_geo.x += step;
+		break;
+	case XK_Left:
+		blue_square_geo.x -= step;
 		break;
 	case XK_Return:
 	case XK_KP_Enter:
@@ -187,39 +197,41 @@ int main(int argc, char *argv[])
 		usage();
 	}
 
-	dpy = XOpenDisplay(NULL);
-	if (!dpy)
+	struct xwindow ctx = { 0 };
+
+	ctx.dpy = XOpenDisplay(NULL);
+	if (!ctx.dpy)
 		die("cannot open display");
-	xim = XOpenIM(dpy, NULL, NULL, NULL);
-	int screen = DefaultScreen(dpy);
+	ctx.xim = XOpenIM(ctx.dpy, NULL, NULL, NULL);
+	int screen = DefaultScreen(ctx.dpy);
 
 	XVisualInfo vinfo;
 	const char depths[] = { 32, 24, 8, 4, 2, 1, 0 };
 	for (int i = 0; depths[i]; i++) {
-		XMatchVisualInfo(dpy, screen, depths[i], TrueColor, &vinfo);
+		XMatchVisualInfo(ctx.dpy, screen, depths[i], TrueColor, &vinfo);
 		if (vinfo.visual)
 			break;
 	}
-	fprintf(stderr, "color depth=%d\n", vinfo.depth);
+	fprintf(stderr, "color-depth=%d\n", vinfo.depth);
 
-	root = RootWindow(dpy, screen);
+	ctx.root = RootWindow(ctx.dpy, screen);
 
-	crt_geometry(&screen_geo);
+	crt_geometry(&ctx, &ctx.screen_geo);
 
 	/* local co-ordinates */
 	struct box menu = { .x = 0, .y = 0, .w = 600, .h = 400 };
 
-	window_geo.x = screen_geo.x + (screen_geo.w - menu.w) / 2;
-	window_geo.y = screen_geo.y + (screen_geo.h - menu.h) / 2;
-	window_geo.w = menu.w;
-	window_geo.h = menu.h;
+	ctx.window_geo.x = ctx.screen_geo.x + (ctx.screen_geo.w - menu.w) / 2;
+	ctx.window_geo.y = ctx.screen_geo.y + (ctx.screen_geo.h - menu.h) / 2;
+	ctx.window_geo.w = menu.w;
+	ctx.window_geo.h = menu.h;
 
-	create_window(&window_geo, &vinfo);
+	create_window(&ctx, &ctx.window_geo, &vinfo);
 
-	if (XGrabKeyboard(dpy, root, True, GrabModeAsync, GrabModeAsync,
+	if (XGrabKeyboard(ctx.dpy, ctx.root, True, GrabModeAsync, GrabModeAsync,
 			  CurrentTime) != GrabSuccess)
 		die("XGrabKeyboard");
-	if (XGrabPointer(dpy, root, False,
+	if (XGrabPointer(ctx.dpy, ctx.root, False,
 			 ButtonPressMask | ButtonReleaseMask |
 			 PointerMotionMask | FocusChangeMask |
 			 EnterWindowMask | LeaveWindowMask,
@@ -227,48 +239,46 @@ int main(int argc, char *argv[])
 			 CurrentTime) != GrabSuccess)
 		die("XGrabPointer");
 
-	Pixmap canvas = XCreatePixmap(dpy, root, menu.w, menu.h, vinfo.depth);
-	cairo_surface_t *surf = cairo_xlib_surface_create(dpy, canvas,
+	ctx.canvas = XCreatePixmap(ctx.dpy, ctx.root, menu.w, menu.h, vinfo.depth);
+	cairo_surface_t *surf = cairo_xlib_surface_create(ctx.dpy, ctx.canvas,
 				  vinfo.visual, menu.w, menu.h);
-	cr = cairo_create(surf);
+	ctx.cr = cairo_create(surf);
 
-	PangoLayout *pangolayout = pango_cairo_create_layout(cr);
+	PangoLayout *pangolayout = pango_cairo_create_layout(ctx.cr);
 	PangoFontDescription *pangofont = pango_font_description_from_string("Sans");
 
-	XMapWindow(dpy, win);
+	XMapWindow(ctx.dpy, ctx.win);
 
-	cairo_save(cr);
-	cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.0);
-	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-	cairo_paint(cr);
-	cairo_restore(cr);
+	cairo_save(ctx.cr);
+	cairo_set_source_rgba(ctx.cr, 0.0, 0.0, 0.0, 0.0);
+	cairo_set_operator(ctx.cr, CAIRO_OPERATOR_SOURCE);
+	cairo_paint(ctx.cr);
+	cairo_restore(ctx.cr);
 
 	/* take screenshot */
-	XImage *ximg = XGetImage(dpy, root, window_geo.x, window_geo.y,
-				 window_geo.w, window_geo.h, AllPlanes, ZPixmap);
-	stackblur(ximg, 0, 0, window_geo.w, window_geo.h, radius, 2);
-	cairo_surface_t *s = surface_from_ximage(ximg, window_geo.w, window_geo.h);
+	XImage *ximg = XGetImage(ctx.dpy, ctx.root, ctx.window_geo.x, ctx.window_geo.y,
+				 ctx.window_geo.w, ctx.window_geo.h, AllPlanes, ZPixmap);
+	stackblur(ximg, 0, 0, ctx.window_geo.w, ctx.window_geo.h, radius, 2);
+	ctx.blurred_scrot = surface_from_ximage(ximg, ctx.window_geo.w, ctx.window_geo.h);
 	if (ximg)
 		XDestroyImage(ximg);
-	render_image(s, 0, 0, 0.99);
 
-	double red[] = { 1.0, 0.0, 0.0, 1.0 };
-	render_rectangle(&menu, red);
-	XCopyArea(dpy, canvas, win, gc, 0, 0, menu.w, menu.h, 0, 0);
+	render(&ctx, &menu);
 
 	/* main loop */
 	XEvent e;
 	for (;;)
 	{
-		if (XPending(dpy)) {
-			XNextEvent(dpy, &e);
-                        if (XFilterEvent(&e, win))
+		if (XPending(ctx.dpy)) {
+			XNextEvent(ctx.dpy, &e);
+                        if (XFilterEvent(&e, ctx.win))
                                 continue;
 			switch (e.type) {
 			case ButtonPress:
 				goto out;
 			case KeyPress:
-				handle_key_event(&e.xkey);
+				handle_key_event(&ctx, &e.xkey);
+				render(&ctx, &menu);
 				break;
 			case MotionNotify:
 				/* TODO: handle pointer motion */
@@ -281,20 +291,19 @@ int main(int argc, char *argv[])
 
 out:
 	/* clean up */
-	XDestroyWindow(dpy, win);
-	XUngrabKeyboard(dpy, CurrentTime);
-	XUngrabPointer(dpy, CurrentTime);
-	if (xic)
-		XDestroyIC(xic);
-	XCloseIM(xim);
-	if (canvas)
-		XFreePixmap(dpy, canvas);
-	if (gc)
-		XFreeGC(dpy, gc);
-	if (dpy)
-		XCloseDisplay(dpy);
-	cairo_destroy(cr);
+	XUngrabKeyboard(ctx.dpy, CurrentTime);
+	XUngrabPointer(ctx.dpy, CurrentTime);
 	cairo_surface_destroy(surf);
+	cairo_surface_destroy(ctx.blurred_scrot);
+	cairo_destroy(ctx.cr);
 	pango_font_description_free(pangofont);
 	g_object_unref(pangolayout);
+	if (ctx.xic)
+		XDestroyIC(ctx.xic);
+	XCloseIM(ctx.xim);
+	if (ctx.canvas)
+		XFreePixmap(ctx.dpy, ctx.canvas);
+	if (ctx.gc)
+		XFreeGC(ctx.dpy, ctx.gc);
+	XDestroyWindow(ctx.dpy, ctx.win);
 }
