@@ -37,6 +37,8 @@
 #include <X11/extensions/Xrandr.h>
 #include "stackblur.h"
 
+#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+#define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 
 void *HStackRenderingThread(void *arg) {
 	StackBlurRenderingParams *rp=(StackBlurRenderingParams*)arg;

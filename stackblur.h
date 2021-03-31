@@ -77,9 +77,6 @@
 #include <pthread.h>
 #include <X11/Xlib.h>
 
-#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
-#define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
-
 typedef struct {
 	unsigned char *pix;
 	int x;

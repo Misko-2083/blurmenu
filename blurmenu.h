@@ -2,11 +2,18 @@
 #define __BLURMENU_H
 
 #include <cairo.h>
+#include <cairo-xlib.h>
+#include <pango/pangocairo.h>
+#include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <X11/Xlib.h>
+#include <unistd.h>
 #include <X11/extensions/Xrandr.h>
+#include <X11/Xatom.h>
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
 
 struct box {
 	int x; int y; int w; int h;
