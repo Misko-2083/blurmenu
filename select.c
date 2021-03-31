@@ -39,6 +39,8 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#define _XOPEN_SOURCE 500
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
