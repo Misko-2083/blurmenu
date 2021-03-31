@@ -1,6 +1,6 @@
 CFLAGS=-Wall -g
 
-blurmenu: blurmenu.c
+blurmenu: blurmenu.c stackblur.c
 	$(CC) $(CFLAGS) -o $@ $^ `pkg-config --cflags --libs x11 xrender cairo` -lpthread
 
 clean:
