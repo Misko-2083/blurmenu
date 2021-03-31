@@ -33,8 +33,10 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "stackblur.h"
 #include <stdlib.h>
+#include <X11/extensions/Xrandr.h>
+#include "stackblur.h"
+
 
 void *HStackRenderingThread(void *arg) {
 	StackBlurRenderingParams *rp=(StackBlurRenderingParams*)arg;

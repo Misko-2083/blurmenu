@@ -1,3 +1,6 @@
+#ifndef __STACKBLUR_H
+#define __STACKBLUR_H
+
 /*
  * stackblur.h
  *
@@ -71,8 +74,11 @@
 //	 to go wrong. Thanks to Jeroen Schellekens for
 //       finding it!
 
+#include <pthread.h>
 #include <X11/Xlib.h>
-#include <X11/extensions/Xrandr.h>
+
+#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+#define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 
 typedef struct {
 	unsigned char *pix;
@@ -92,15 +98,10 @@ typedef struct {
 	int *vminy;
 } StackBlurRenderingParams;
 
-#include <pthread.h>
-
-#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
-#define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
-
 void *HStackRenderingThread(void *arg);
 
 void *VStackRenderingThread(void *arg);
 
 void stackblur(XImage *image,int x, int y,int w,int h,int radius, unsigned int num_threads);
 
-
+#endif /* __STACKBLUR_H */
