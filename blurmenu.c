@@ -52,7 +52,7 @@ void render_rectangle(cairo_t *cr, struct box *box, double *rgba, bool fill)
 static void render(struct xwindow *ctx, struct box *menu)
 {
 	cairo_save(ctx->cr);
-	cairo_translate(ctx->cr, x, y);
+	cairo_translate(ctx->cr, 0, 0);
 	cairo_set_source_surface(ctx->cr, ctx->blurred_scrot, 0, 0);
 	cairo_paint_with_alpha(ctx->cr, 0.99);
 	cairo_restore(ctx->cr);
