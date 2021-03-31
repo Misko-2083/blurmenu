@@ -1,3 +1,9 @@
+/*
+ * blurmenu.c
+ *
+ * Copyright (C) 2021 Милош Павловић
+ */
+
 #include <cairo.h>
 #include <stdio.h>
 #include <string.h>

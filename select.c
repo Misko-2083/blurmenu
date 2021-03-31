@@ -1,3 +1,44 @@
+/*
+ * select.c
+ *
+ * Copied from https://bbs.archlinux.org/viewtopic.php?pid=660547#p660547
+ * which is based on scrot's main.c
+ *
+ * Copyright 1999-2000 Tom Gilbert <tom@linuxbrit.co.uk,
+ *                                  gilbertt@linuxbrit.co.uk,
+ *                                  scrot_sucks@linuxbrit.co.uk>
+ * Copyright 2009      James Cameron <quozl@us.netrek.org>
+ * Copyright 2010      Ibragimov Rinat <ibragimovrinat@mail.ru>
+ * Copyright 2017      Stoney Sauce <stoneysauce@gmail.com>
+ * Copyright 2019      Daniel T. Borelli <danieltborelli@gmail.com>
+ * Copyright 2019      Jade Auer <jade@trashwitch.dev>
+ * Copyright 2020      blockparole
+ * Copyright 2020      Cungsten Tarbide <ctarbide@tuta.io>
+ * Copyright 2020      daltomi <daltomi@disroot.org>
+ * Copyright 2020      Hinigatsu <hinigatsu@protonmail.com>
+ * Copyright 2020      nothub
+ * Copyright 2020      Sean Brennan <zettix1@gmail.com>
+ * Copyright 2020      spycapitan <spycapitan@protonmail.com>
+ * Copyright 2021      c0dev0id <sh+github@codevoid.de>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in
+ * all copies of the Software and its documentation and acknowledgment shall be
+ * given in the documentation and software packages that this Software was
+ * used.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -9,10 +50,6 @@
 
 void select_area (int * cordx, int * cordy, int * cordw, int * cordh)
 {
-  /* Funcion to select area
-     https://bbs.archlinux.org/viewtopic.php?pid=660547#p660547
-     We won't need this when there is a window mapped with x,y,width,height
-  */
   int rx = 0, ry = 0, rw = 0, rh = 0;
   int rect_x = 0, rect_y = 0, rect_w = 0, rect_h = 0;
   int btn_pressed = 0, done = 0;
