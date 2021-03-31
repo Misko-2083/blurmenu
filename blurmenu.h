@@ -38,8 +38,16 @@ struct xwindow {
 	struct box window_geo;
 };
 
+void die(const char *fmt, ...);
+
 cairo_surface_t *surface_from_ximage(XImage *ximg, int width, int height);
 
 void select_area(int * cordx, int * cordy, int * cordw, int * cordh);
+
+/* get the geometry of the crt where the pointer is */
+void x11_crt_geometry(struct xwindow *ctx, struct box *box);
+
+/* create a transparent window with no border */
+void x11_create_window(struct xwindow *ctx, struct box *box, XVisualInfo *vinfo);
 
 #endif /* __BLURMENU_H */

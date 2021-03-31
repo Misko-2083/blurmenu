@@ -24,96 +24,13 @@ usage(void)
 	exit(0);
 }
 
-static void die(const char *fmt, ...)
+void die(const char *fmt, ...)
 {
 	va_list params;
 	va_start(params, fmt);
 	vfprintf(stderr, fmt, params);
 	va_end(params);
 	exit(1);
-}
-
-static bool is_point_on_crt(int x, int y, XRRCrtcInfo *ci)
-{
-	struct box b = {
-		.x = (int)ci->x, .y = (int)ci->y,
-		.w = (int)ci->width, .h = (int)ci->height,
-	};
-	if (x < b.x || x > b.x + b.w)
-		return false;
-	if (y < b.y || y > b.y + b.h)
-		return false;
-	return true;
-}
-
-/* return the geometry of the crt where the pointer is */
-static void crt_geometry(struct xwindow *ctx, struct box *box)
-{
-	int i, n, x, y, di;
-	unsigned int du;
-	Window dw;
-	XRRScreenResources *sr;
-	XRRCrtcInfo *ci = NULL;
-	sr = XRRGetScreenResourcesCurrent(ctx->dpy, ctx->root);
-	n = sr->ncrtc;
-	XQueryPointer(ctx->dpy, ctx->root, &dw, &dw, &x, &y, &di, &di, &du);
-	for (i = 0; i < n; i++) {
-		if (ci)
-			XRRFreeCrtcInfo(ci);
-		ci = XRRGetCrtcInfo(ctx->dpy, sr, sr->crtcs[i]);
-		if (!ci->noutput)
-			continue;
-		if (is_point_on_crt(x, y, ci)) {
-			fprintf(stderr, "monitor=%d\n", i + 1);
-			break;
-		}
-	}
-	if (!ci)
-		die("connection could be established to monitor");
-	box->x = (int)ci->x;
-	box->y = (int)ci->y;
-	box->w = (int)ci->width;
-	box->h = (int)ci->height;
-	XRRFreeCrtcInfo(ci);
-	XRRFreeScreenResources(sr);
-}
-
-/* create a transparent window with no border */
-static void create_window(struct xwindow *ctx, struct box *box, XVisualInfo *vinfo)
-{
-	XSetWindowAttributes swa;
-	swa.override_redirect = True;
-	swa.event_mask = ExposureMask | KeyPressMask |
-			 VisibilityChangeMask | ButtonPressMask;
-	swa.colormap = XCreateColormap(ctx->dpy, ctx->root, vinfo->visual, AllocNone);
-	swa.background_pixel = 0;
-	swa.border_pixel = 0;
-	ctx->win = XCreateWindow(ctx->dpy, ctx->root, box->x, box->y, box->w, box->h, 0,
-		vinfo->depth, CopyFromParent, vinfo->visual, CWOverrideRedirect |
-		CWColormap | CWBackPixel | CWEventMask | CWBorderPixel, &swa);
-	ctx->xic = XCreateIC(ctx->xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
-		XNClientWindow, ctx->win, XNFocusWindow, ctx->win, NULL);
-	ctx->gc = XCreateGC(ctx->dpy, ctx->win, 0, NULL);
-	XStoreName(ctx->dpy, ctx->win, "blurmenu");
-	XSetIconName(ctx->dpy, ctx->win, "blurmenu");
-
-	XClassHint *classhint = XAllocClassHint();
-	classhint->res_name = (char *)"blurmenu";
-	classhint->res_class = (char *)"blurmenu";
-	XSetClassHint(ctx->dpy, ctx->win, classhint);
-	XFree(classhint);
-
-	XDefineCursor(ctx->dpy, ctx->win, XCreateFontCursor(ctx->dpy, 68));
-	XSync(ctx->dpy, False);
-}
-
-void render_image(cairo_t *cr, cairo_surface_t *image, double x, double y, double alpha)
-{
-	cairo_save(cr);
-	cairo_translate(cr, x, y);
-	cairo_set_source_surface(cr, image, 0, 0);
-	cairo_paint_with_alpha(cr, alpha);
-	cairo_restore(cr);
 }
 
 void render_rectangle(cairo_t *cr, struct box *box, double *rgba, bool fill)
@@ -134,7 +51,11 @@ void render_rectangle(cairo_t *cr, struct box *box, double *rgba, bool fill)
 
 static void render(struct xwindow *ctx, struct box *menu)
 {
-	render_image(ctx->cr, ctx->blurred_scrot, 0, 0, 0.99);
+	cairo_save(ctx->cr);
+	cairo_translate(ctx->cr, x, y);
+	cairo_set_source_surface(ctx->cr, ctx->blurred_scrot, 0, 0);
+	cairo_paint_with_alpha(ctx->cr, 0.99);
+	cairo_restore(ctx->cr);
 
 	double red[] = { 1.0, 0.0, 0.0, 1.0 };
 	render_rectangle(ctx->cr, menu, red, false);
@@ -142,7 +63,8 @@ static void render(struct xwindow *ctx, struct box *menu)
 	double blue[] = { 0.0, 0.0, 1.0, 1.0 };
 	render_rectangle(ctx->cr, &blue_square_geo, blue, true);
 
-	XCopyArea(ctx->dpy, ctx->canvas, ctx->win, ctx->gc, 0, 0, menu->w, menu->h, 0, 0);
+	XCopyArea(ctx->dpy, ctx->canvas, ctx->win, ctx->gc, 0, 0, menu->w,
+		  menu->h, 0, 0);
 }
 
 static void handle_key_event(struct xwindow *ctx, XKeyEvent *ev)
@@ -216,7 +138,7 @@ int main(int argc, char *argv[])
 
 	ctx.root = RootWindow(ctx.dpy, screen);
 
-	crt_geometry(&ctx, &ctx.screen_geo);
+	x11_crt_geometry(&ctx, &ctx.screen_geo);
 
 	/* local co-ordinates */
 	struct box menu = { .x = 0, .y = 0, .w = 600, .h = 400 };
@@ -226,7 +148,7 @@ int main(int argc, char *argv[])
 	ctx.window_geo.w = menu.w;
 	ctx.window_geo.h = menu.h;
 
-	create_window(&ctx, &ctx.window_geo, &vinfo);
+	x11_create_window(&ctx, &ctx.window_geo, &vinfo);
 
 	if (XGrabKeyboard(ctx.dpy, ctx.root, True, GrabModeAsync, GrabModeAsync,
 			  CurrentTime) != GrabSuccess)
