@@ -110,10 +110,9 @@ int main(int argc, char *argv[])
 			radius = atoi(optarg);
 			break;
 		case 't':
-			if (atoi(optarg) > 1 && atoi(optarg) < 17) {
+			if (atoi(optarg) > 1 && atoi(optarg) < 17)
 				threads = atoi(optarg);
-				break;
-			}
+			break;
 		case 'h':
 		default:
 			usage();
