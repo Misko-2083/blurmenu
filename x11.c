@@ -27,10 +27,8 @@ void x11_crt_geometry(struct xwindow *ctx, struct box *box)
 		ci = XRRGetCrtcInfo(ctx->dpy, sr, sr->crtcs[i]);
 		if (!ci->noutput)
 			continue;
-		if (is_point_on_crt(x, y, ci)) {
-			fprintf(stderr, "monitor=%d\n", i + 1);
+		if (is_point_on_crt(x, y, ci))
 			break;
-		}
 	}
 	if (!ci)
 		die("connection could be established to monitor");

@@ -138,7 +138,6 @@ int main(int argc, char *argv[])
 		if (vinfo.visual)
 			break;
 	}
-	fprintf(stderr, "color-depth=%d\n", vinfo.depth);
 
 	ctx.root = RootWindow(ctx.dpy, screen);
 
