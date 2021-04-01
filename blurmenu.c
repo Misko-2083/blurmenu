@@ -5,7 +5,9 @@
  * Copyright (C) 2021 Johan Malm
  */
 
+#include <errno.h>
 #include <getopt.h>
+#include <sys/select.h>
 #include "blurmenu.h"
 #include "stackblur.h"
 
@@ -99,6 +101,51 @@ static void handle_key_event(struct xwindow *ctx, XKeyEvent *ev)
 	}
 }
 
+static void main_loop(struct xwindow *ctx, struct box *menu)
+{
+	XEvent e;
+	fd_set readfds;
+	FD_ZERO(&readfds);
+	int x11_fd = ConnectionNumber(ctx->dpy);
+	int nfds = x11_fd + 1;
+	FD_SET(x11_fd, &readfds);
+	struct timeval tv = { 0 };
+
+	for (;;) {
+		FD_ZERO(&readfds);
+		FD_SET(x11_fd, &readfds);
+
+		/* timeout after 0.5 seconds */
+		tv.tv_usec = 500000;
+		int ret;
+		if (!XPending(ctx->dpy))
+			ret = select(nfds, &readfds, NULL, NULL, &tv);
+		if (ret == -1 && errno == EINTR)
+			continue;
+		if (ret == -1)
+			die("select()");
+
+		if (XPending(ctx->dpy)) {
+			XNextEvent(ctx->dpy, &e);
+			if (XFilterEvent(&e, ctx->win))
+				continue;
+			switch (e.type) {
+			case ButtonPress:
+				return;
+			case KeyPress:
+				handle_key_event(ctx, &e.xkey);
+				render(ctx, menu);
+				break;
+			case MotionNotify:
+				/* TODO: handle pointer motion */
+				break;
+			default:
+				break;
+			}
+		}
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	int radius = 10;
@@ -118,9 +165,8 @@ int main(int argc, char *argv[])
 			usage();
 		}
 	}
-	if (optind < argc) {
+	if (optind < argc)
 		usage();
-	}
 
 	struct xwindow ctx = { 0 };
 
@@ -182,31 +228,8 @@ int main(int argc, char *argv[])
 	XMapWindow(ctx.dpy, ctx.win);
 	render(&ctx, &menu);
 
-	/* main loop */
-	XEvent e;
-	for (;;)
-	{
-		if (XPending(ctx.dpy)) {
-			XNextEvent(ctx.dpy, &e);
-                        if (XFilterEvent(&e, ctx.win))
-                                continue;
-			switch (e.type) {
-			case ButtonPress:
-				goto out;
-			case KeyPress:
-				handle_key_event(&ctx, &e.xkey);
-				render(&ctx, &menu);
-				break;
-			case MotionNotify:
-				/* TODO: handle pointer motion */
-				break;
-			default:
-				break;
-			}
-		}
-	}
+	main_loop(&ctx, &menu);
 
-out:
 	/* clean up */
 	XUngrabKeyboard(ctx.dpy, CurrentTime);
 	XUngrabPointer(ctx.dpy, CurrentTime);
