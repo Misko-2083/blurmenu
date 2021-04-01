@@ -176,8 +176,6 @@ int main(int argc, char *argv[])
 	PangoLayout *pangolayout = pango_cairo_create_layout(ctx.cr);
 	PangoFontDescription *pangofont = pango_font_description_from_string("Sans");
 
-	XMapWindow(ctx.dpy, ctx.win);
-
 	cairo_save(ctx.cr);
 	cairo_set_source_rgba(ctx.cr, 0.0, 0.0, 0.0, 0.0);
 	cairo_set_operator(ctx.cr, CAIRO_OPERATOR_SOURCE);
@@ -192,6 +190,7 @@ int main(int argc, char *argv[])
 	if (ximg)
 		XDestroyImage(ximg);
 
+	XMapWindow(ctx.dpy, ctx.win);
 	render(&ctx, &menu);
 
 	/* main loop */
