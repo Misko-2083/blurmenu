@@ -9,7 +9,7 @@
 
 cairo_surface_t *surface_from_ximage(XImage *ximg, int width, int height)
 {
-	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_RGB24, width);
+	int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
 	unsigned char *data = calloc(1, stride * height);
 
 	for (int y = 0; y < height; ++y) {
@@ -21,11 +21,12 @@ cairo_surface_t *surface_from_ximage(XImage *ximg, int width, int height)
 			data[y * stride + x * 4 + 0] = blue;
 			data[y * stride + x * 4 + 1] = green;
 			data[y * stride + x * 4 + 2] = red;
+			data[y * stride + x * 4 + 3] = 255;
 		}
 	}
 
 	cairo_surface_t *surface = NULL;
-	surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, width, height);
+	surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
 	unsigned char *surface_data = cairo_image_surface_get_data(surface);
 	cairo_surface_flush(surface);
 	memcpy(surface_data, data, width * height * 4);

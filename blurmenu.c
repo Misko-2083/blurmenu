@@ -52,11 +52,8 @@ void render_rectangle(cairo_t *cr, struct box *box, double *rgba, bool fill)
 
 static void render(struct xwindow *ctx, struct box *menu)
 {
-	cairo_save(ctx->cr);
-	cairo_translate(ctx->cr, 0, 0);
 	cairo_set_source_surface(ctx->cr, ctx->blurred_scrot, 0, 0);
-	cairo_paint_with_alpha(ctx->cr, 0.99);
-	cairo_restore(ctx->cr);
+	cairo_paint(ctx->cr);
 
 	double red[] = { 1.0, 0.0, 0.0, 1.0 };
 	render_rectangle(ctx->cr, menu, red, false);
@@ -175,12 +172,6 @@ int main(int argc, char *argv[])
 
 	PangoLayout *pangolayout = pango_cairo_create_layout(ctx.cr);
 	PangoFontDescription *pangofont = pango_font_description_from_string("Sans");
-
-	cairo_save(ctx.cr);
-	cairo_set_source_rgba(ctx.cr, 0.0, 0.0, 0.0, 0.0);
-	cairo_set_operator(ctx.cr, CAIRO_OPERATOR_SOURCE);
-	cairo_paint(ctx.cr);
-	cairo_restore(ctx.cr);
 
 	/* take screenshot */
 	XImage *ximg = XGetImage(ctx.dpy, ctx.root, ctx.window_geo.x, ctx.window_geo.y,
