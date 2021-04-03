@@ -10,7 +10,7 @@ CFLAGS  += $(ASAN_FLAGS)
 LDFLAGS += $(ASAN_FLAGS) -fuse-ld=gold
 endif
 
-blurmenu: main.o cairo.o select.o stackblur.o x11.o
+blurmenu: main.o cairo.o items.o select.o stackblur.o x11.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 clean:

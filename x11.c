@@ -1,3 +1,9 @@
+/*
+ * x11.c - some x11 helpers
+ *
+ * Copyright (C) 2021 Johan Malm
+ */
+
 #include "blurmenu.h"
 
 static bool is_point_on_crt(int x, int y, XRRCrtcInfo *ci)
@@ -67,5 +73,3 @@ void x11_create_window(struct xwindow *ctx, struct box *box, XVisualInfo *vinfo)
 	XDefineCursor(ctx->dpy, ctx->win, XCreateFontCursor(ctx->dpy, 68));
 	XSync(ctx->dpy, False);
 }
-
-

@@ -9,9 +9,8 @@
 #include <getopt.h>
 #include <sys/select.h>
 #include "blurmenu.h"
+#include "menu.h"
 #include "stackblur.h"
-
-static struct box blue_square_geo = { .x = 10, .y = 10, .w = 10, .h = 10 };
 
 static const char blurmenu_usage[] =
 "Usage: blurmenu [options]\n\n"
@@ -52,22 +51,36 @@ void render_rectangle(cairo_t *cr, struct box *box, double *rgba, bool fill)
 	cairo_stroke(cr);
 }
 
-static void render(struct xwindow *ctx, struct box *menu)
+void render_image(struct xwindow *ctx, cairo_surface_t *image, double x, double y)
+{
+	cairo_save(ctx->cr);
+	cairo_translate(ctx->cr, x, y);
+	cairo_set_source_surface(ctx->cr, image, 0, 0);
+	cairo_paint(ctx->cr);
+	cairo_restore(ctx->cr);
+}
+
+static void render(struct xwindow *ctx, struct menu *menu)
 {
 	cairo_set_source_surface(ctx->cr, ctx->blurred_scrot, 0, 0);
 	cairo_paint(ctx->cr);
 
 	double red[] = { 1.0, 0.0, 0.0, 1.0 };
-	render_rectangle(ctx->cr, menu, red, false);
+	render_rectangle(ctx->cr, &menu->box, red, false);
 
-	double blue[] = { 0.0, 0.0, 1.0, 1.0 };
-	render_rectangle(ctx->cr, &blue_square_geo, blue, true);
+	struct menuitem *item;
+	for (int i = 0; i < menu->nr_items; i++) {
+		item = menu->items + i;
+		render_image(ctx, item->texture, item->box.x, item->box.y);
+		if (menu->selected == item)
+			render_rectangle(ctx->cr, &item->box, red, false);
+	}
 
-	XCopyArea(ctx->dpy, ctx->canvas, ctx->win, ctx->gc, 0, 0, menu->w,
-		  menu->h, 0, 0);
+	XCopyArea(ctx->dpy, ctx->canvas, ctx->win, ctx->gc, 0, 0, menu->box.w,
+		  menu->box.h, 0, 0);
 }
 
-static void handle_key_event(struct xwindow *ctx, XKeyEvent *ev)
+static void handle_key_event(struct xwindow *ctx, struct menu *menu, XKeyEvent *ev)
 {
 	char buf[32];
 	KeySym ksym = NoSymbol;
@@ -77,31 +90,25 @@ static void handle_key_event(struct xwindow *ctx, XKeyEvent *ev)
 	if (status == XBufferOverflow)
 		return;
 
-	int step = 5;
 	switch (ksym) {
 	case XK_Escape:
 		exit(0);
 	case XK_Up:
-		blue_square_geo.y -= step;
+		items_handle_key(menu, -1);
 		break;
 	case XK_Down:
-		blue_square_geo.y += step;
-		break;
-	case XK_Right:
-		blue_square_geo.x += step;
-		break;
-	case XK_Left:
-		blue_square_geo.x -= step;
+		items_handle_key(menu, 1);
 		break;
 	case XK_Return:
 	case XK_KP_Enter:
+		printf("%s\n", menu->selected->name);
 		exit(0);
 	default:
 		break;
 	}
 }
 
-static void main_loop(struct xwindow *ctx, struct box *menu)
+static void main_loop(struct xwindow *ctx, struct menu *menu)
 {
 	XEvent e;
 	fd_set readfds;
@@ -133,7 +140,7 @@ static void main_loop(struct xwindow *ctx, struct box *menu)
 			case ButtonPress:
 				return;
 			case KeyPress:
-				handle_key_event(ctx, &e.xkey);
+				handle_key_event(ctx, menu, &e.xkey);
 				render(ctx, menu);
 				break;
 			case MotionNotify:
@@ -183,18 +190,18 @@ int main(int argc, char *argv[])
 		if (vinfo.visual)
 			break;
 	}
-
 	ctx.root = RootWindow(ctx.dpy, screen);
-
 	x11_crt_geometry(&ctx, &ctx.screen_geo);
 
-	/* local co-ordinates */
-	struct box menu = { .x = 0, .y = 0, .w = 600, .h = 400 };
+	struct menu menu = { 0 };
+	menu.box.w = 640;
+	menu.box.h = 480;
+	items_init(&menu);
 
-	ctx.window_geo.x = ctx.screen_geo.x + (ctx.screen_geo.w - menu.w) / 2;
-	ctx.window_geo.y = ctx.screen_geo.y + (ctx.screen_geo.h - menu.h) / 2;
-	ctx.window_geo.w = menu.w;
-	ctx.window_geo.h = menu.h;
+	ctx.window_geo.x = ctx.screen_geo.x + (ctx.screen_geo.w - menu.box.w) / 2;
+	ctx.window_geo.y = ctx.screen_geo.y + (ctx.screen_geo.h - menu.box.h) / 2;
+	ctx.window_geo.w = menu.box.w;
+	ctx.window_geo.h = menu.box.h;
 
 	x11_create_window(&ctx, &ctx.window_geo, &vinfo);
 
@@ -209,13 +216,10 @@ int main(int argc, char *argv[])
 			 CurrentTime) != GrabSuccess)
 		die("XGrabPointer");
 
-	ctx.canvas = XCreatePixmap(ctx.dpy, ctx.root, menu.w, menu.h, vinfo.depth);
+	ctx.canvas = XCreatePixmap(ctx.dpy, ctx.root, menu.box.w, menu.box.h, vinfo.depth);
 	cairo_surface_t *surf = cairo_xlib_surface_create(ctx.dpy, ctx.canvas,
-				  vinfo.visual, menu.w, menu.h);
+				  vinfo.visual, menu.box.w, menu.box.h);
 	ctx.cr = cairo_create(surf);
-
-	PangoLayout *pangolayout = pango_cairo_create_layout(ctx.cr);
-	PangoFontDescription *pangofont = pango_font_description_from_string("Sans");
 
 	/* take screenshot */
 	XImage *ximg = XGetImage(ctx.dpy, ctx.root, ctx.window_geo.x, ctx.window_geo.y,
@@ -231,13 +235,13 @@ int main(int argc, char *argv[])
 	main_loop(&ctx, &menu);
 
 	/* clean up */
+	items_finish(&menu);
 	XUngrabKeyboard(ctx.dpy, CurrentTime);
 	XUngrabPointer(ctx.dpy, CurrentTime);
 	cairo_surface_destroy(surf);
 	cairo_surface_destroy(ctx.blurred_scrot);
 	cairo_destroy(ctx.cr);
-	pango_font_description_free(pangofont);
-	g_object_unref(pangolayout);
+	pango_cairo_font_map_set_default(NULL);
 	if (ctx.xic)
 		XDestroyIC(ctx.xic);
 	XCloseIM(ctx.xim);

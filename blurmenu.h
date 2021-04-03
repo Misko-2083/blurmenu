@@ -31,15 +31,37 @@ struct xwindow {
 
 	cairo_surface_t *blurred_scrot;
 
-	/* output coordinates of the crt the window is on */
+	/* root window coordinates of the crt the menu window is on */
 	struct box screen_geo;
 
-	/* output coordinates of the window */
+	/* root window coordinates of the menu window */
 	struct box window_geo;
 };
 
+struct menuitem {
+	char *name;
+	struct box box;
+	cairo_surface_t *texture;
+};
+
+struct menu {
+	struct box box;
+
+	/* vector containing menu items */
+	struct menuitem *items;
+	int nr_items, alloc_items;
+
+	/* pointer to currently selected item */
+	struct menuitem *selected;
+};
+
+void items_init(struct menu *menu);
+void items_finish(struct menu *menu);
+void items_handle_key(struct menu *menu, int step);
+
 void die(const char *fmt, ...);
 
+cairo_surface_t *texture_create(struct box *box, const char *text, double *bg, double *fg);
 cairo_surface_t *surface_from_ximage(XImage *ximg, int width, int height);
 
 void select_area(int * cordx, int * cordy, int * cordw, int * cordh);
